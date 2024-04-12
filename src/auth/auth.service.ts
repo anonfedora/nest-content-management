@@ -70,5 +70,69 @@ export class AuthService {
         user: Auth
     ): Promise<Auth> {
         const allowedUpdates = ["name", "email"];
+        const uodates = Object.keys(updateUserDto);
+
+        const isValidUpdate = updates.every(update =>
+            allowedUpdates.includes(update)
+        );
+
+        if (!isValidUpdate) {
+            throw new BadRequestException("Invalid updates");
+        }
+        const existingUser = await this.authModel.findById(userId);
+
+        if (!existingUser) {
+            throw new NotFoundException("User not found");
+        }
+
+        if (user.role && existingUser._id.toString() !== user.toString()) {
+            new UnauthorizedException(
+                "You are not authorized to delete this user"
+            );
+        }
+
+        updates.forEach(update => {
+            existingUser[update] = updateUserDto[update];
+        });
+
+        await existingUser.save();
+
+        return existingUser;
+    }
+
+    async updateUserPassword(
+        userId: string,
+        oldPassword: string,
+        newPassword: string
+    ): Promise<Auth> {
+        const user = await this.authModel.findById(userId);
+
+        if (!user) {
+            throw new NotFoundException(`User with id ${userId} not found`);
+        }
+
+        const oldPasswordMatches = await bcrypt.compare(
+            oldPassword,
+            user.password
+        );
+
+        if (!oldPasswordMatches) {
+            // Old password does not match
+            throw new UnauthorizedException("Invalid old password");
+        }
+        if (oldPassword === newPassword) {
+            throw new BadRequestException(
+                "New password cannot be the same as old password"
+            );
+        }
+
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+        const updatedUser = await this.authModel.findByIdAndUpdate(
+            userId,
+            { password: hashedNewPassword },
+            { new: true }
+        );
+
+        return updatedUser;
     }
 }

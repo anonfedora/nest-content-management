@@ -31,5 +31,43 @@ import { FileInterceptor, AnyFilesInterceptor } from "@nestjs/platform-express";
 
 @Controller("blog")
 export class BlogController {
-    constructor(private readonly BlogService: BlogService) {}
+    constructor(
+        private readonly blogService: BlogService,
+        private readonly commentService: CommentService
+    ) {}
+
+    @Post()
+    @UseGuards(RolesGuard)
+    @Roles(Role.Admin, Role.Guest)
+    @UseInterceptors(FileInterceptor("imageUrl"))
+    async create(
+        @UploadedFile() file: Express.Multer.File,
+        @Body() createBlogDto: CreateBlogDto,
+        @Request() req
+    ): Promise<Blog> {
+        try {
+            createBlogDto.imageUrl = file.path;
+
+            const savedBlogPost = await this.blogService.create(
+                createBlogDto,
+                req.user
+            );
+            savedBlogPost.imageUrl = `${req.protocol}://${req.get("host")}/${
+                savedBlogPost.imageUrl
+            }`;
+            return savedBlogPost;
+        } catch (e) {
+            if (e instanceof MongoError && e.code === 11000) {
+                throw new Error("Slug already exists");
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    @Public()
+    @Get()
+    async getAll(@Query("page") page: number, @Query("limit") limit: number) {
+        return this.blogService.findAll(page, limit);
+    }
 }

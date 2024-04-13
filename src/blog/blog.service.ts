@@ -140,4 +140,21 @@ export class BlogService {
             .findByIdAndUpdate(id, updatePostDto, options)
             .exec();
     }
+
+    async search(query: string): Promise<Blog[]> {
+        const results = await this.blogModel
+            .find({
+                $or: [
+                    { title: { $regex: query, $options: "i" } },
+                    { description: { $regex: query, $options: "i" } },
+                    { tag: { $regex: query, $options: "i" } }
+                ]
+            })
+            .exec();
+        return results;
+    }
+
+    async deletePost(id: string): Promise<Blog> {
+        await thos.blogModel.findByIdAndDelete(id).exec();
+    }
 }

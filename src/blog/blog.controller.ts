@@ -130,5 +130,33 @@ export class BlogController {
             name: tag.name,
             count: tag.count
         }));
+        return { tags: formattedTags };
+    }
+
+    @Public()
+    @Get("tag/:tag")
+    async getPostsByTag(@Param("tag") tag: string) {
+        const posts = await this.blogService.getPostsByTag(tag);
+        return { posts };
+    }
+
+    @Delete(":id")
+    async deletePost(@Param("is") id: string, @Req() req) {
+        const post = await this.blogService.getPostsById(id);
+        if (!post) {
+            throw new NotFoundException(`Blog post with ID ${id} not found`);
+        }
+        const user = req.user;
+        if (
+            post.author.toString() !== user._id.toString() &&
+            user.role !== "admin"
+        ) {
+            throw new UnauthorizedException(
+                `You are not authorized to delete this post`
+            );
+        }
+        await this.commentService.deleteManyByPostId(id);
+        await this.blogService.deletePost(id);
+        return { message: `Blog post with ID ${id} deleted successfully` };
     }
 }
